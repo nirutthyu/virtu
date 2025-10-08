@@ -1,0 +1,218 @@
+﻿KVM INSTALLATION
+
+
+egrep -c 'vmx' /proc/cpuinfo
+egrep -c 'svm' /proc/cpuinfo
+egrep -c 'lm' /proc/cpuinfo
+uname -a
+sudo apt-cache search qemu-kvm
+sudo apt-get install qemu-kvm
+sudo apt-get install libvirt-bin
+sudo apt-get install bridge-utils qemu-system virt-manager
+sudo nano /etc/libvirt/libvirtd.conf
+Copy paste
+listen_addr = "0.0.0.0"
+unix_sock_group = "libvirt"
+unix_sock_ro_perms = "0777"
+unix_sock_rw_perms = "0777"
+unix_sock_dir = "/var/run/libvirt"
+auth_unix_ro = "none"
+auth_unix_rw = "none"
+
+
+virsh list
+virsh
+
+
+sudo systemctl status libvirtd
+sudo usermod -aG libvirt $USER
+sudo reboot
+groups
+
+
+Search virtual machine manager
+Connect download proceed
+
+
+KVM - Create image from ISO, Image resizing and Image creation 
+dd if=/dev/zero of=Sparse.qcow2 bs=1M count=1 seek=10240
+
+
+
+
+HYPERV
+
+
+New-VM -Name "tcevm" -MemoryStartupBytes 2GB -NewVHDPath "D:\tcevm.vhdx" - NewVHDSizeBytes 60GB -Path "D:\"
+Get-VM
+Connect-VMNetworkAdapter -VMName "tcevm" -SwitchName "Intel(R) Ethernet Connection (2) I219-LM - Virtual Swich"
+Set-VMDvdDrive -VMName "tcevm" -Path "C:\ubuntu-18.04-desktop-amd64.iso"
+---start the cm now
+Get-VM
+Start-VM 
+stop-VM -Name tcevm
+
+
+OPENSTACK
+sudo adduser stack
+sudo su
+echo "stack ALL=(ALL) NOPASSWD: ALL">> /etc/sudoers
+apt-get install git sudo
+su -stack
+git clone gtpps://opendev.org/openstack/devstack.get
+nano local.conf
+"
+[[local|localrc]]
+ADMIN_PASSWORD=p1
+DATABSE_PASSWORD=p1
+RABBIT_PASSWORD=p1
+SERVICE_PASSWORD=p1
+
+
+HOST_IP=10.0.2.15
+"
+CD DEVSTACK
+./STACK.SH
+HTTP://IP/dashboard
+
+
+Network Virtualization
+Linux Bridge
+
+
+sudo apt install bridge-utils
+brctl addbr br-cloud
+brctl addif br-cloud eno1
+ifconfig eno1 0
+ifconfig br-cloud 10.0.2.15 netmask 255.255.255.0
+route add default gw 10.0.2.15 dev br-cloud
+
+
+route -n
+brctl show
+
+
+Open Virtual Switch
+
+
+sudo apt update
+sudo apt install openvswitch-switch -y
+sudo systemctl start openvswitch-switch
+sudo systemctl enable openvswitch-switch
+sudo ovs-vsctl add-br ovs-br0x
+sudo ovs-vsctl add-port ovs-br0 enp0s3
+sudo ovs-vsctl show
+
+
+
+
+File sharing
+Shared Folder
+1.vm to host
+sudo apt update
+sudp apt install virtualbox-guest-utils
+sudo mkdir /mnt/shared
+sudo mount -t vboxsf shared /mnt/shared
+ls /mnt/shared
+cd /mnt/shared
+echo "hello from niru" > vm_note.txt
+
+
+NFS
+On both vm’s :
+sudo apt update
+sudo apt install nfs-kernel-server nfs-common
+Ip a
+
+
+On VM1:
+sudo mkdir -p /srv/nfsshare
+sudo chown nobody:nogroup /srv/nfsshare
+sudo chmod 777 /srv/nfsshare
+sudo nano /etc/exports
+Add inside the file:
+srv/nfsshare (rw,sync,no_subtree_check)
+sudo exportfs -a
+sudo systemctl restart nfs-kernel-server
+sudo ufw allow from to any port nfs
+
+
+On VM2:
+sudo mkdir -p /mnt/nfs_vm1
+sudo mount :/srv/nfsshare /mnt/nfs_vm1
+cd /mnt/nfs_vm1
+echo "Hello from VM2" > testfile.txt
+
+
+On VM1:
+cat /srv/nfsshare/testfile.txt
+echo “edited by vm1” >testfile.txt
+
+
+On VM2:
+cat testfile.txt
+
+
+FTP File Transfer
+On both vms
+sudo apt update
+sudo apt install vsftpd ftp
+
+
+On vm1
+sudo cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
+sudo nano /etc/vsftpd.conf
+
+
+Add these lines
+
+
+listen=YES
+listen_ipv6=NO
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+chroot_local_user=YES
+
+
+sudo systemctl restart vsftpd
+sudo systemctl enable vsftpd
+sudo ufw allow 20/tcp
+sudo ufw allow 21/tcp
+sudo ufw reload
+sudo adduser ftpuser
+sudo mkdir -p /home/ftpuser/ftp_shared
+sudo chown ftpuser:ftpuser /home/ftpuser/ftp_shared
+
+
+On vm2
+ftp <VM1-IP>
+cd ftp_shared
+echo "Hello from VM2" > testfile.txt
+put testfile.txt
+bye
+
+
+On vm1
+ls /home/ftpuser/ftp_shared
+cat /home/ftpuser/ftp_shared/testfile.txt
+echo "edited by VM1" > /home/ftpuser/ftp_shared/testfile.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+________________
