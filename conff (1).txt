@@ -1,0 +1,374 @@
+﻿File sharing
+
+
+NFS
+On both vm’s :
+setting->network ->host only (vm2 -> clone vm1)
+sudo apt update
+sudo apt install nfs-kernel-server nfs-common
+Ip a
+
+
+On VM1:
+sudo mkdir -p /srv/nfsshare
+sudo chown nobody:nogroup /srv/nfsshare
+sudo chmod 777 /srv/nfsshare
+sudo nano /etc/exports
+Add inside the file:
+/srv/nfsshare <vm2ip>(rw,sync,no_subtree_check)
+sudo exportfs -a
+sudo systemctl restart nfs-kernel-server
+sudo ufw allow from <vm1ip> to any port nfs
+
+
+On VM2:
+sudo mkdir -p /mnt/nfs_vm1
+sudo mount <vm1ip>:/srv/nfsshare /mnt/nfs_vm1
+cd /mnt/nfs_vm1
+echo "Hello from VM2" > testfile.txt
+
+
+On VM1:
+cat /srv/nfsshare/testfile.txt
+echo “edited by vm1” >testfile.txt
+
+
+On VM2:
+cat testfile.txt
+
+
+
+
+SSH
+Network -> adp1 (Nat)->adp2 (host only)
+
+
+ON both VMS
+sudo apt update 
+sudo apt install openssh-server
+sudo systemctl status ssh
+sudo systemctl start ssh
+ON VM1
+ nano ssh1.txt
+realpath ssh1.txt
+hostname
+scp <copy paste real path> <hostname>@vm2ip:<destination_path>
+
+
+ON VM2
+ls
+
+
+
+
+FTP
+On both vms
+Ip a
+
+
+On vm1
+sudo apt update
+sudo apt install vsftpd -y
+sudo systemctl enable --now vsftpd
+sudo nano /etc/vsftpd.conf
+
+
+Add this in file
+
+
+local_enable=YES
+write_enable=YES
+
+
+sudo systemctl restart vsftpd
+
+
+
+
+On VM2 
+nano file.txt
+sudo apt install ftp -y
+ftp <vm1ip>
+put file.txt
+
+
+ON vm1
+ls
+cat file.txt
+nano file2.txt
+
+
+ON vm2
+get file2.txt
+
+
+HTTP
+
+
+ON both vms
+ip a
+
+
+On vm1
+mkdir httpshare
+cd httpshare
+nano file.txt
+python3 -m http.server 8080
+
+
+On VM2
+wget http://<vm1ip>:8080/file.txt
+ls
+
+
+SHARED FOLDER
+
+
+On both vms
+sudo apt update
+
+
+On vm1
+sudo apt install virtualbox-guest-utils
+sudo mkdir /mnt/shared
+sudo mount -t vboxsf shared /mnt/shared
+ls /mnt/shared
+cd /mnt/shared
+echo “hello from vm1 shared folder” > sh.txt
+ls
+
+
+On vm2
+ls /media
+cd /media/sf_shared
+sudo usermod -aG vboxsf $USER
+sudo reboot
+
+
+ls /media
+cd /media/sf_shared
+ls
+cat sh.txt
+echo “hello from vm2 shared folder” > sh.txt
+ls
+
+
+On vm1
+Ls
+
+
+HYPERV
+
+New-VM -Name "tcevm" -MemoryStartupBytes 2GB -NewVHDPath "D:\tcevm.vhdx" - NewVHDSizeBytes 60GB -Path "D:\"
+
+
+Get-VM
+
+
+Connect-VMNetworkAdapter -VMName "tcevm" -SwitchName "Intel(R) Ethernet Connection (2) I219-LM - Virtual Switch"
+
+
+Set-VMDvdDrive -VMName "tcevm" -Path "C:\ubuntu-18.04-desktop-amd64.iso"
+
+
+---start the vm now
+Get-VM
+Start-VM -Name tcevm
+stop-VM -Name tcevm
+
+
+OPENSTACK
+
+
+sudo adduser stack
+sudo su
+echo "stack ALL=(ALL) NOPASSWD: ALL">> /etc/sudoers
+apt-get install git sudo
+su -stack
+git clone https://opendev.org/openstack/devstack.git
+nano local.conf
+"
+[[local|localrc]]
+ADMIN_PASSWORD=p1
+DATABSE_PASSWORD=p1
+RABBIT_PASSWORD=p1
+SERVICE_PASSWORD=p1
+
+
+HOST_IP=10.0.2.15
+"
+CD DEVSTACK
+./STACK.SH
+`HTTP://IP/dashboard
+
+
+Network virtualization
+Linux bridge
+
+
+# 1. Install bridge tools
+sudo apt install -y bridge-utils
+
+
+# 2. Create the bridge
+sudo brctl addbr br-cloud
+
+
+# 3. Add physical NIC to the bridge
+sudo brctl addif br-cloud enp0s3
+
+
+# 4. Remove IP from physical NIC
+sudo ip addr flush dev enp0s3
+
+
+# 5. Assign IP to bridge
+sudo ip addr add 10.0.2.15/24 dev br-cloud
+
+
+# 6. Bring interfaces up
+sudo ip link set enp0s3 up
+sudo ip link set br-cloud up
+
+
+# 7. Set default route (gateway should be your actual router or NAT)
+sudo ip route add default via 10.0.2.2 dev br-cloud
+
+
+# 8. Verify
+brctl show
+ip addr show br-cloud
+ip route show
+
+
+Openv Switch
+
+
+1. sudo -s
+2. ip netns add VRF1
+3. ip netns add VRF2
+
+
+4. ip link add veth1 type veth peer name veth2
+5. ip link add veth3 type veth peer name veth4
+
+
+6. ip link set veth1 netns VRF1
+7. ip link set veth2 netns VRF2
+
+
+8. ip netns exec VRF1 ip addr add 10.10.10.1/24 dev veth1
+9. ip netns exec VRF2 ip addr add 10.10.10.1/24 dev veth2
+
+
+10. ip netns exec VRF1 ip link set veth1 up
+11. ip netns exec VRF2 ip link set veth2 up
+
+
+12. ip netns exec VRF1 ip link set lo up
+13. ip netns exec VRF2 ip link set lo up
+    
+
+
+14. sudo apt install openvswitch-switch openvswitch-common -y
+15. ovs-vsctl --version
+16. ovs-vsctl add-br vSwitch1 -------> ovs-vsctl show
+17. ip netns exec VRF1 ping 10.10.10.1
+18. ovsdb-client dump
+
+
+
+
+Storage virtualization
+
+
+1. Switch to root user
+cmd => sudo -s
+
+
+
+
+2. List all disks and partitions
+cmd => fdisk -l
+
+
+3. Display physical volumes
+cmd => pvdisplay
+        If the command not found
+                cmd => apt install lvm2
+                cmd => pvdisplay
+4. Display volume groups
+cmd => vgdisplay
+5. Display logical volumes
+cmd => lvdisplay
+
+
+6. Create physical volume
+cmd => pvcreate /dev/sdb
+
+
+7. Create LVM on the new disk
+cmd => vgcreate demo-vg /dev/sdb
+cmd => lvcreate -L 10G -n demo-lv demo-vg
+        If insufficient free space came - reduce 10GB to 5 GB
+        cmd => lvcreate -L 5G -n demo-lv demo-vg
+
+
+8. Create filesystem and mount
+cmd => mkfs.ext4 /dev/demo-vg/demo-lv
+cmd => mkdir /mnt/lvm-demo
+cmd => mount /dev/demo-vg/demo-lv /mnt/lvm-demo
+
+
+9. Resize logical volume (adjust size as needed)
+cmd => lvresize --size +12G demo-vg/demo-lv
+        If insufficient free space came -  reduce +12G to +2G
+        cmd => lvresize --size +2G demo-vg/demo-lv
+
+
+10. Check current disk usage
+cmd => df -h
+        (Output will be at last like this with size like 4.9G - /dev/mapper/demo--vg-demo--lv  4.9G   20M  4.6G   1% /mnt/lvm-demo)
+
+
+11. Resize filesystem
+cmd => resize2fs /dev/mapper/demo--vg-demo--lv
+
+
+12. Verify the extension
+cmd => df -h
+        (Output will be at last like this with increased size like 6.9G - /dev/mapper/demo--vg-demo--lv  6.9G   23M  6.5G   1% /mnt/lvm-demo)
+
+
+
+
+KVM
+sudo apt install qemu-system qemu-kvm bridge-utils virt-manager libvirt-clients libvirt-daemon-system
+sudo systemctl restart libvirt
+virsh list
+virsh
+version
+nodeinfo
+exit
+
+
+
+
+
+
+sudo apt install virt-manager
+touch ubuntu-22.04-desktop-amd64.iso
+sudo mkdir -p /mnt/isodemo
+ls -l /mnt/isodemo
+echo -n "CD001" | dd of=ubuntu-22.04-desktop-amd64.iso bs=1 seek=32769 conv=notrunc
+virt-manager
+
+
+sudo apt install imagemagick -y
+which convert
+convert -size 1024x768 xc:lightblue image.jpg
+ls -l image.jpg
+convert image.jpg -resize 800x600 resized.jpg
+ls -l resized.jpg
+file image.jpg
+file resized.jpg
